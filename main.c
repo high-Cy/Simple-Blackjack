@@ -389,17 +389,8 @@ card_draw(char **deck, int *iDeck, hand_t *hands, ranks_t ranks,
         if (strcmp(user_command, "stand")!=0) {
             get_command(user_command);
 
-            //user_turn(deck, iDeck, hands, ranks, suits, nUser, user_command, 
-              //              dealerStart);
-
-            if (strcmp(user_command, "hit")==0) {
-                hands->user[*nUser] = deck[*iDeck];
-                *iDeck+=1; *nUser+=1;
-                print_user_hand(hands, suits, ranks, *nUser, dealerStart);
-            } 
-
-            printf("\n\nDealer's hand: \n");
-            print_hand(hands->dealer, suits, *nDealer, dealerStart);
+            user_turn(deck, iDeck, hands, ranks, suits, nUser, user_command, 
+                            dealerStart);
 
             user_value = get_hand_value(hands->user, ranks, *nUser);
 
