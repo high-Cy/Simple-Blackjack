@@ -25,7 +25,7 @@
 #define START_HAND  2
 #define START_ACE   11      // value of starting ace
 
-#define HIT_VAL     160      // dealer to hit when HIT_VAL or lower
+#define HIT_VAL     16      // dealer to hit when HIT_VAL or lower
 #define BJ          21      // value of blackjack
 
 /* typedefs------------------------------------------------------------------*/
@@ -47,8 +47,8 @@ typedef struct {
 } credits_t;
 
 typedef struct {
-    char *user[N_CARD+1];
-    char *dealer[N_CARD+1];
+    char user[MAX_HAND][N_CARD+1];
+    char dealer[MAX_HAND][N_CARD+1];
 } hand_t;
 
 /* Function Prototypes-------------------------------------------------------*/
@@ -63,15 +63,15 @@ void print_deck(char**);
 void get_bet(credits_t*);
 char* get_card(char**, int);
 void deal_cards(char**, hand_t*, int*);
-void print_hand(char**, suits_t, int, int);
+void print_hand(char[MAX_HAND][N_CARD+1], suits_t, int, int);
 void print_user_hand(hand_t*, suits_t, ranks_t, int, int);
-int get_hand_value(char**, ranks_t, int);
-int check_ace(char**);
+int get_hand_value(char[MAX_HAND][N_CARD+1], ranks_t, int);
+int check_ace(char[MAX_HAND][N_CARD+1]);
 void get_command(char*);
 void card_draw(char**, int*, hand_t*, ranks_t, suits_t, int*, int*, int);
 void dealer_turn(char** ,int*, hand_t*, ranks_t, int*, char*);
 void user_turn(char**, int*, hand_t*, ranks_t, suits_t, int*, char*,  int);
-void hit(char**, int*, char**, int*);
+void hit(char**, int*, char[MAX_HAND][N_CARD+1], int*);
 
 int
 main(int argc, char *argv[]) {
@@ -130,7 +130,7 @@ main(int argc, char *argv[]) {
 
     free_deck(deck);
     deck = NULL;
-    
+
     return 0;
 }
 
@@ -258,15 +258,15 @@ deal_cards(char **deck, hand_t *hands, int *iDeck){
 
     int iHand=0;
     for (iHand=0; iHand<2; iHand++) {
-        hands->dealer[iHand] = deck[*iDeck];
+        strcpy(hands->dealer[iHand], deck[*iDeck]);
         *iDeck += 1;
-        hands->user[iHand] = deck[*iDeck];
+        strcpy(hands->user[iHand], deck[*iDeck]);
         *iDeck += 1;
     }
 }
 
 void
-print_hand(char **hand, suits_t suits, int nCards, int dealerStart) {
+print_hand(char hand[MAX_HAND][N_CARD+1], suits_t suits, int nCards, int dealerStart) {
 
     for (int i=0; i<nCards; i++) {
         printf("    %c of ", hand[i][0]);
@@ -298,7 +298,7 @@ print_user_hand(hand_t *hands, suits_t suits, ranks_t ranks,
 
 /* Count and return the hand's value */
 int
-get_hand_value(char **hand, ranks_t ranks, int nCards) {
+get_hand_value(char hand[MAX_HAND][N_CARD+1], ranks_t ranks, int nCards) {
     int value=0, ace=FALSE;
     // check starting hand with ace
     if (nCards == START_HAND) {
@@ -323,7 +323,7 @@ get_hand_value(char **hand, ranks_t ranks, int nCards) {
 
 /* Check if there's an Ace in hand */
 int 
-check_ace(char** hand) {
+check_ace(char hand[MAX_HAND][N_CARD+1]) {
     for (int i=0; i<START_HAND; i++) {
         if (hand[i][0] == 'A') {
             return TRUE;
@@ -370,7 +370,6 @@ void
 card_draw(char **deck, int *iDeck, hand_t *hands, ranks_t ranks, 
                 suits_t suits, int *nDealer, 
                 int *nUser, int dealerStart) {
-    int user_value;
     char dealer_command[LEN_COMM] = "\0";
     char user_command[LEN_COMM] = "\0";
 
@@ -380,11 +379,6 @@ card_draw(char **deck, int *iDeck, hand_t *hands, ranks_t ranks,
         if (strcmp(dealer_command, "stand")!=0) {
             dealer_turn(deck, iDeck, hands, ranks, nDealer, dealer_command);
 
-            /**/
-            int value = get_hand_value(hands->dealer, ranks, *nDealer);
-            printf("\n\nDealer's hand: \n");
-            print_hand(hands->dealer, suits, *nDealer, dealerStart);
-            printf("dealer value: %d\n", value);
         }
         if (strcmp(user_command, "stand")!=0) {
             get_command(user_command);
@@ -392,13 +386,10 @@ card_draw(char **deck, int *iDeck, hand_t *hands, ranks_t ranks,
             user_turn(deck, iDeck, hands, ranks, suits, nUser, user_command, 
                             dealerStart);
 
-            user_value = get_hand_value(hands->user, ranks, *nUser);
-
-            if (user_value>BJ) {
-                //break;
+            if (get_hand_value(hands->user, ranks, *nUser) > BJ) {
+                break;
             }
         }
-
     }
 }
 
@@ -410,9 +401,7 @@ dealer_turn(char **deck, int *iDeck, hand_t *hands, ranks_t ranks,
     // set dealer to draw card when hand is lower than wanted value
     int value = get_hand_value(hands->dealer, ranks, *nDealer);
     if (value <= HIT_VAL) {
-        //hit(deck, iDeck, hands->dealer, nDealer);
-        hands->dealer[*nDealer] = deck[*iDeck];
-        *nDealer +=1; *iDeck +=1;
+        hit(deck, iDeck, hands->dealer, nDealer);
         strcpy(dealer_command, "hit\0");
     } else {
         strcpy(dealer_command, "stand\0");
@@ -434,8 +423,8 @@ user_turn(char **deck, int *iDeck, hand_t *hands, ranks_t ranks,
 
 /* Add a card from the deck to hand */
 void
-hit(char** deck, int *iDeck, char *hand[N_CARD+1], int *nCards) {
-    hand[*nCards] = deck[*iDeck];
+hit(char** deck, int *iDeck, char hand[MAX_HAND][N_CARD+1], int *nCards) {
+    strcpy(hand[*nCards], deck[*iDeck]);
     *nCards += 1;
     *iDeck += 1;
 }
