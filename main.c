@@ -32,12 +32,12 @@
 
 // struct with ranks and their corresponding value
 typedef struct {
-    int rank_val[N_RANK];      // value of each rank
-    char *rank_str[N_RANK+1];    // name of rank
+    int rank_val[N_RANK];           // value of each rank
+    char *rank_str[N_RANK+1];       // name of rank
 } ranks_t;
 
 typedef struct {
-    char *suit_str[N_SUIT+1];         // short-form name of suits
+    char *suit_str[N_SUIT+1];       // short-form name of suits
     char *suit_name[LEN_SNAME+1];   // name of suit
 } suits_t;
 
@@ -266,7 +266,8 @@ deal_cards(char **deck, hand_t *hands, int *iDeck){
 }
 
 void
-print_hand(char hand[MAX_HAND][N_CARD+1], suits_t suits, int nCards, int dealerStart) {
+print_hand(char hand[MAX_HAND][N_CARD+1], suits_t suits, int nCards, 
+                int dealerStart) {
 
     for (int i=0; i<nCards; i++) {
         printf("    %c of ", hand[i][0]);
