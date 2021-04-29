@@ -17,6 +17,7 @@
 #define MAX_HAND    11      // max number of cards possible in hand
 #define LEN_SNAME   8       // max length of suit name (diamonds)
 #define LEN_COMM    6       // max length of command (stand)
+#define LEN_BOOL    4       // max length of yes or no (yes)
 
 #define TRUE        1
 #define FALSE       0
@@ -72,6 +73,8 @@ void card_draw(char**, int*, hand_t*, ranks_t, suits_t, int*, int*, int);
 void dealer_turn(char** ,int*, hand_t*, ranks_t, int*, char*);
 void user_turn(char**, int*, hand_t*, ranks_t, suits_t, int*, char*,  int);
 void hit(char**, int*, char[MAX_HAND][N_CARD+1], int*);
+void game_status(credits_t*, hand_t*, ranks_t, suits_t, int*, int*, int);
+int get_continue(void);
 
 int
 main(int argc, char *argv[]) {
@@ -96,38 +99,52 @@ main(int argc, char *argv[]) {
     printf("Welcome stranger, to this Simple Blackjack Simulator!\n"
             "You'll be given %d credits to start off\n"
             "Game ends when you lose all the credits.\n\n", START_BAL);
-
+    
     /* record amount to bet */
     credits_t credits;
     credits.balance=START_BAL;
     get_bet(&credits);
+    while (credits.balance >= 0) {
+        printf("You bet %d credit(s).\n", credits.to_bet);
 
-    printf("You bet %d credit(s).\n", credits.to_bet);
+        /* deal cards to user and dealer */
+        hand_t hands;
+        int iDeck=0;                // card index of deck
+        int nUser, nDealer;         // number of cards
+        int dealerStart;            // is dealer's starting hand?
+        nUser = nDealer = START_HAND;
+        deal_cards(deck, &hands, &iDeck);
+        
+        /* dealer's hand */
+        dealerStart = TRUE;
+        printf("\nDealer's hand: \n");
+        print_hand(hands.dealer, suits, nUser, dealerStart);
+        dealerStart = FALSE;    // set to false to print dealer's hand later
 
-    /* deal cards to user and dealer */
-    hand_t hands;
-    int iDeck=0;                // card index of deck
-    int nUser, nDealer;         // number of cards
-    int dealerStart;            // is dealer's starting hand?
-    nUser = nDealer = START_HAND;
-    deal_cards(deck, &hands, &iDeck);
-    
-    /* dealer's hand */
-    dealerStart = TRUE;
-    printf("\nDealer's hand: \n");
-    print_hand(hands.dealer, suits, nUser, dealerStart);
-    dealerStart = FALSE;    // set to false to print dealer's hand later
+        /* user's hand */
+        print_user_hand(&hands, suits, ranks, nUser, dealerStart);
+        
+        /* user & dealer to draw cards */
+        card_draw(deck, &iDeck, &hands, ranks, suits, 
+                                &nDealer, &nUser, dealerStart);
 
-    /* user's hand */
-    print_user_hand(&hands, suits, ranks, nUser, dealerStart);
-    
-    /* user & dealer to draw cards */
-    card_draw(deck, &iDeck, &hands, ranks, suits, 
-                            &nDealer, &nUser, dealerStart);
-    //dealer_turn
+        /* provide game status */
+        game_status(&credits, &hands, ranks, suits, &nUser, &nDealer, 
+                        dealerStart);
 
-    putchar('\n');
-
+        /* continue playing? */
+        if (!get_continue()) {
+            printf("\nThanks for playing!\n\n");
+            break;
+        } else if (credits.balance<=0){
+            printf("Looks like you don't have enough credits.\n");
+            printf("Thanks for playing\n\n");
+            break;
+        } else {
+            printf("Your balance is: %d\n\n", credits.balance);
+            get_bet(&credits);
+        }
+    }
     free_deck(deck);
     deck = NULL;
 
@@ -386,6 +403,7 @@ card_draw(char **deck, int *iDeck, hand_t *hands, ranks_t ranks,
 
             user_turn(deck, iDeck, hands, ranks, suits, nUser, user_command, 
                             dealerStart);
+            print_user_hand(hands, suits, ranks, *nUser, dealerStart);
 
             if (get_hand_value(hands->user, ranks, *nUser) > BJ) {
                 break;
@@ -418,7 +436,6 @@ user_turn(char **deck, int *iDeck, hand_t *hands, ranks_t ranks,
     //printf("%d", strcmp(user_command, "hit"));
     if (strcmp(user_command, "hit")==0) {
         hit(deck, iDeck, hands->user, nUser);
-        print_user_hand(hands, suits, ranks, *nUser, dealerStart);
     } 
 }
 
@@ -430,3 +447,59 @@ hit(char** deck, int *iDeck, char hand[MAX_HAND][N_CARD+1], int *nCards) {
     *iDeck += 1;
 }
 
+/* Displays outcome */
+void
+game_status(credits_t *credits, hand_t *hands, ranks_t ranks, suits_t suits, 
+                int *nUser, int *nDealer, int dealerStart) {
+    int user_val = get_hand_value(hands->user, ranks, *nUser);
+    int dealer_val = get_hand_value(hands->dealer, ranks, *nDealer);
+
+    if (user_val > BJ) {
+        printf("    BUST!\n");
+    }
+
+    printf("\n\nDealer's hand: \n");
+    print_hand(hands->dealer, suits, *nDealer, dealerStart);
+    printf("Value: %d\n\n", dealer_val);
+
+    if (user_val > BJ || (user_val < dealer_val && dealer_val < BJ)) {
+        printf("You lost. :(\n");
+    } else if (user_val == dealer_val) {
+        printf("Draw.\n");
+        credits->balance += credits->to_bet;
+    } else {
+        printf("YOU WON! :)\n");
+        credits->balance += 2*credits->to_bet;
+
+    }
+}
+
+/* Asks user if they want to continue playing */
+int
+get_continue(void) {
+    int cont, valid;
+    char *input = NULL;
+    size_t len=0;
+    ssize_t input_size=0;
+
+    printf("Do you want to continue? Type 1 for yes, 0 for no: \n");
+    print_prompt();
+
+    do {
+        input_size = getline(&input, &len, stdin);
+
+        valid = sscanf(input, "%d", &cont);
+
+        if (valid!=1) {
+            printf("Input was not a number. Try again.\n");
+            print_prompt();
+
+        } else if (cont !=0 && cont!=1){
+            printf("Type 1 for yes, 0 for no\n"); 
+            print_prompt();
+        } 
+
+    } while (valid!=1 || (cont !=0 && cont!=1));
+
+    return cont;
+}
